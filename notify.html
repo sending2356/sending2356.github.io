@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Notifier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .btn-glow:hover {
+            box-shadow: 0 0 15px 5px rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 flex items-center justify-center h-screen">
+
+    <div id="main-content" class="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 hidden">
+        <div id="location-display" class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Requesting Assistance</h1>
+            <p class="text-gray-600 dark:text-gray-300 mt-2">You are at:</p>
+            <p id="location-text" class="text-xl font-semibold text-blue-600 dark:text-blue-400"></p>
+        </div>
+
+        <button id="notify-button" class="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg text-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800 transition-all duration-300 ease-in-out transform hover:scale-105 btn-glow">
+            Notify a Worker
+        </button>
+
+        <div id="message-box" class="mt-6 p-4 rounded-lg text-white hidden"></div>
+    </div>
+
+    <div id="loading-spinner" class="text-center">
+        <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="mt-4 text-gray-600 dark:text-gray-300">Connecting...</p>
+    </div>
+
+
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // --- Firebase Configuration ---
+        // This configuration is a placeholder. In a real environment, this would be your actual Firebase project config.
+        const firebaseConfig = {
+           apiKey: "AIzaSyDX9IFrGYHdNcETWs4OmlRcmMq7COVu_BM",
+           authDomain: "notification-cfe11.firebaseapp.com",
+           projectId: "notification-cfe11",
+           storageBucket: "notification-cfe11.appspot.com", // Corrected storage bucket domain
+           messagingSenderId: "95502933910",
+           appId: "1:95502933910:web:3f139025a853e10c7287b7"
+        };
+
+        // --- Main Execution ---
+        window.onload = () => {
+            // --- DOM Elements ---
+            const notifyButton = document.getElementById('notify-button');
+            const locationText = document.getElementById('location-text');
+            const messageBox = document.getElementById('message-box');
+            const mainContent = document.getElementById('main-content');
+            const loadingSpinner = document.getElementById('loading-spinner');
+
+            // --- App Logic ---
+
+            // Function to display messages to the user
+            function showMessage(message, type = 'success') {
+                messageBox.textContent = message;
+                messageBox.classList.remove('hidden', 'bg-green-500', 'bg-red-500', 'bg-yellow-500');
+                if (type === 'success') {
+                    messageBox.classList.add('bg-green-500');
+                } else if (type === 'error') {
+                    messageBox.classList.add('bg-red-500');
+                } else { // 'info'
+                    messageBox.classList.add('bg-yellow-500');
+                }
+                // Hide the message after 8 seconds for errors
+                const hideTime = type === 'error' ? 8000 : 5000;
+                setTimeout(() => {
+                    messageBox.classList.add('hidden');
+                }, hideTime);
+            }
+
+            // Get location from URL
+            function getLocationFromURL() {
+                const params = new URLSearchParams(window.location.search);
+                // Decode the location parameter and fall back to a default if not present
+                return params.get('location') ? decodeURIComponent(params.get('location')) : 'Unknown Location';
+            }
+
+            // --- App Initialization ---
+            let db, auth;
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch (e) {
+                console.error("Firebase initialization failed:", e);
+                showMessage("Error: Could not connect to the notification service. Please check the console.", "error");
+                loadingSpinner.classList.add('hidden');
+                // This return is now valid as it's inside the onload function
+                return;
+            }
+
+            const location = getLocationFromURL();
+            locationText.textContent = location;
+
+            // Handle Authentication
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // User is signed in.
+                    console.log("Authenticated anonymously:", user.uid);
+                    loadingSpinner.classList.add('hidden');
+                    mainContent.classList.remove('hidden');
+                } else {
+                    // User is signed out.
+                    console.log("User is not authenticated. Attempting to sign in anonymously.");
+                }
+            });
+
+            // Sign in the user anonymously to allow database writes
+            signInAnonymously(auth).catch((error) => {
+                console.error("Anonymous sign-in failed:", error);
+                
+                // *** FIX: Added specific error handling for auth/configuration-not-found ***
+                // This error means you need to enable Anonymous sign-in in the Firebase console.
+                if (error.code === 'auth/configuration-not-found') {
+                    const errorMessage = "Configuration Error: Anonymous sign-in is not enabled for this project. Please enable it in the Firebase Authentication console.";
+                    showMessage(errorMessage, "error");
+                    console.error("HOW TO FIX: Go to your Firebase Console -> Project -> Authentication -> Sign-in method -> and enable the 'Anonymous' provider.");
+                } else {
+                    showMessage("Authentication failed. You may not be able to send notifications.", "error");
+                }
+                
+                loadingSpinner.classList.add('hidden');
+                mainContent.classList.remove('hidden'); // Show content anyway, but button will fail
+            });
+
+
+            // Event listener for the notification button
+            notifyButton.addEventListener('click', async () => {
+                if (!auth.currentUser) {
+                    showMessage("You are not connected. Please refresh the page or check for configuration errors.", "error");
+                    return;
+                }
+
+                notifyButton.disabled = true;
+                notifyButton.textContent = 'Sending...';
+                notifyButton.classList.add('opacity-50', 'cursor-not-allowed');
+
+                try {
+                    // Add a new document with a generated id to the 'notifications' collection
+                    const docRef = await addDoc(collection(db, "notifications"), {
+                        location: location,
+                        timestamp: serverTimestamp(), // Use server time for accuracy
+                        acknowledged: false
+                    });
+                    console.log("Notification sent with ID: ", docRef.id);
+                    showMessage(`Worker notified from ${location}! Help is on the way.`, 'success');
+                    // Provide feedback but keep the button disabled to prevent spam
+                    notifyButton.textContent = 'Notification Sent!';
+                    notifyButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                    notifyButton.classList.add('bg-green-500');
+
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                    showMessage("Failed to send notification. Please try again.", "error");
+                    notifyButton.disabled = false;
+                    notifyButton.textContent = 'Notify a Worker';
+                    notifyButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            });
+        };
+    </script>
+</body>
+</html>

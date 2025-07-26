@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Notification System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .section {
+            scroll-margin-top: 80px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+
+    <!-- Header / Navigation -->
+    <header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                Notifier System
+            </div>
+            <div class="hidden md:flex space-x-6">
+                <a href="#how-it-works" class="hover:text-blue-500">How It Works</a>
+                <a href="#for-customers" class="hover:text-blue-500">For Customers</a>
+                <a href="#for-workers" class="hover:text-blue-500">For Workers</a>
+            </div>
+            <a href="#" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                Worker Dashboard
+            </a>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Hero Section -->
+        <section class="bg-white dark:bg-gray-800 text-center py-20 px-6">
+            <h1 class="text-5xl font-bold text-gray-900 dark:text-white mb-4">Instant Assistance, Simplified.</h1>
+            <p class="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-8">
+                Our system allows customers to request help simply by scanning a QR code, instantly notifying the nearest available worker.
+            </p>
+            <a href="#how-it-works" class="bg-gray-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors">
+                Learn More
+            </a>
+        </section>
+
+        <!-- How It Works Section -->
+        <section id="how-it-works" class="section container mx-auto px-6 py-16">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold">How It Works</h2>
+                <p class="text-gray-600 dark:text-gray-400 mt-2">A seamless three-step process.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8 text-center">
+                <!-- Step 1 -->
+                <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
+                    <div class="bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h-1m-1-6l.707.707M12 20.5V19.5M4.5 12H3m1.5 6.5l-.707.707M19.5 4.5l-.707.707M4.5 19.5l.707-.707" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h-1m-1-6l.707.707M12 20.5V19.5M4.5 12H3m1.5 6.5l-.707.707M19.5 4.5l-.707.707M4.5 19.5l.707-.707" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m-6-3a9 9 0 1118 0 9 9 0 01-18 0z" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">1. Scan</h3>
+                    <p class="text-gray-600 dark:text-gray-400">A customer scans a QR code placed at a specific location using their phone's camera.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
+                    <div class="bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
+                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.835 2.165a3.58 3.58 0 01.23 4.695L3 12.5l2.5-2.5 4.695.23a3.58 3.58 0 014.695.23z" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">2. Tap</h3>
+                    <p class="text-gray-600 dark:text-gray-400">They are taken to a simple webpage where they tap a single button to confirm their request for help.</p>
+                </div>
+                <!-- Step 3 -->
+                <div class="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
+                    <div class="bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                    </div>
+                    <h3 class="text-2xl font-bold mb-2">3. Notify</h3>
+                    <p class="text-gray-600 dark:text-gray-400">A notification instantly appears on the worker dashboard with the customer's location.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feature Sections -->
+        <section class="bg-white dark:bg-gray-800">
+            <div id="for-customers" class="section container mx-auto px-6 py-16 flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-8 md:mb-0">
+                    <h2 class="text-3xl font-bold mb-4">Simple for Customers</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">No app to download. No account to create. Customers use the camera app that's already on their phone. The web page is fast, simple, and accessible.</p>
+                    <a href="notify.html?location=Demo+Location" target="_blank" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">Try a Demo &rarr;</a>
+                </div>
+                <div class="md:w-1/2">
+                    <img src="https://placehold.co/600x400/e2e8f0/4a5568?text=Phone+Scanning+QR+Code" alt="Phone scanning a QR code" class="rounded-lg shadow-xl w-full">
+                </div>
+            </div>
+        </section>
+
+        <section>
+             <div id="for-workers" class="section container mx-auto px-6 py-16 flex flex-col md:flex-row-reverse items-center">
+                <div class="md:w-1/2 mb-8 md:mb-0">
+                    <h2 class="text-3xl font-bold mb-4">Powerful for Workers</h2>
+                    <p class="text-gray-600 dark:text-gray-400 mb-4">A real-time dashboard shows all active requests at a glance. Workers can see where help is needed and acknowledge requests to coordinate responses efficiently.</p>
+                    <a href="#" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">View Dashboard (Coming Soon) &rarr;</a>
+                </div>
+                <div class="md:w-1/2">
+                     <img src="https://placehold.co/600x400/4a5568/e2e8f0?text=Real-time+Dashboard+UI" alt="Dashboard UI" class="rounded-lg shadow-xl w-full">
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white text-center p-8">
+        <p>&copy; 2025 Worker Notification System. All rights reserved.</p>
+        <p class="text-sm text-gray-400 mt-2">A project built for simplicity and efficiency.</p>
+    </footer>
+
+</body>
+</html>

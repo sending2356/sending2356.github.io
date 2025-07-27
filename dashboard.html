@@ -6,7 +6,6 @@
     <title>Worker Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- SheetJS Library for Excel Export -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
@@ -30,7 +29,6 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900">
 
-    <!-- Login Section -->
     <div id="login-section" class="flex items-center justify-center h-screen">
         <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
             <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Worker Dashboard Login</h2>
@@ -51,7 +49,6 @@
         </div>
     </div>
 
-    <!-- Profile Setup Modal -->
     <div id="profile-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full z-50 flex items-center justify-center">
         <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
             <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Setup Your Profile</h2>
@@ -71,13 +68,12 @@
         </div>
     </div>
     
-    <!-- Comment Modal -->
     <div id="comment-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full z-50 flex items-center justify-center">
         <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
-            <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Add Comment</h2>
+            <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Add/Edit Comment</h2>
             <form id="comment-form" class="space-y-6">
                 <div>
-                    <label for="comment-text" class="text-sm font-medium text-gray-700 dark:text-gray-300">Comment (Optional)</label>
+                    <label for="comment-text" class="text-sm font-medium text-gray-700 dark:text-gray-300">Resolution Comment</label>
                     <textarea id="comment-text" rows="3" class="w-full px-3 py-2 mt-1 rounded-md" placeholder="e.g., Customer needed help finding item X."></textarea>
                 </div>
                 <div class="flex space-x-4">
@@ -85,14 +81,13 @@
                         Cancel
                     </button>
                     <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-md text-white bg-green-600 hover:bg-green-700">
-                        Acknowledge Request
+                        Save Comment
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Dashboard Section -->
     <div id="dashboard-section" class="hidden">
         <header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40">
             <div class="container mx-auto px-6 py-4 flex justify-between items-center">
@@ -186,9 +181,9 @@
         logoutButton.addEventListener('click', () => signOut(auth));
 
         // --- Comment Modal Logic ---
-        function openCommentModal(id) {
+        function openCommentModal(id, currentComment = '') {
             activeRequestId = id;
-            commentForm.reset();
+            document.getElementById('comment-text').value = currentComment;
             commentModal.classList.remove('hidden');
         }
         cancelCommentBtn.addEventListener('click', () => commentModal.classList.add('hidden'));
@@ -196,7 +191,8 @@
             e.preventDefault();
             if (!activeRequestId) return;
             const commentText = document.getElementById('comment-text').value;
-            await acknowledgeRequest(activeRequestId, commentText);
+            const notificationRef = doc(db, "notifications", activeRequestId);
+            await updateDoc(notificationRef, { comment: commentText });
             commentModal.classList.add('hidden');
             activeRequestId = null;
         });
@@ -231,19 +227,22 @@
             const receivedTime = notification.timestamp ? new Date(notification.timestamp.seconds * 1000).toLocaleString() : 'N/A';
             const nameDisplay = notification.name ? `<p class="text-md"><b>By:</b> ${notification.name}</p>` : '';
             
-            let acknowledgedInfo = '';
+            let bottomContent = '';
             if (notification.acknowledged) {
                 const ackTime = notification.acknowledgedTimestamp ? new Date(notification.acknowledgedTimestamp.seconds * 1000).toLocaleString() : 'N/A';
                 const workerId = notification.workerName ? `${notification.workerName} ${notification.workerLastNameInitial || ''}.` : 'N/A';
                 const commentDisplay = notification.comment ? `<p class="text-sm italic text-gray-600 dark:text-gray-400 mt-2">"${notification.comment}"</p>` : '';
 
-                acknowledgedInfo = `
+                bottomContent = `
                     <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p class="text-sm text-green-600 dark:text-green-400"><b>Handled By:</b> ${workerId}</p>
-                        <p class="text-sm text-green-600 dark:text-green-400"><b>At:</b> ${ackTime}</p>
+                        <p class="text-sm text-gray-500"><b>At:</b> ${ackTime}</p>
                         ${commentDisplay}
+                        <button class="add-comment-btn mt-2 text-sm text-blue-500 hover:underline">Add/Edit Comment</button>
                     </div>
                 `;
+            } else {
+                 bottomContent = `<button class="acknowledge-btn mt-2 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600">Acknowledge</button>`;
             }
 
             card.innerHTML = `
@@ -251,42 +250,37 @@
                     <p class="font-bold text-lg">${notification.location}</p>
                     ${nameDisplay}
                     <p class="text-sm text-gray-500"><b>Received:</b> ${receivedTime}</p>
-                    ${acknowledgedInfo}
                 </div>
+                ${bottomContent}
             `;
 
-            if (!notification.acknowledged) {
-                const ackButton = document.createElement('button');
-                ackButton.textContent = 'Acknowledge';
-                ackButton.className = 'mt-2 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600';
-                ackButton.onclick = () => openCommentModal(notification.id);
-                card.querySelector('div').appendChild(ackButton);
+            // Add event listeners after innerHTML is set
+            if (notification.acknowledged) {
+                card.querySelector('.add-comment-btn').addEventListener('click', () => openCommentModal(notification.id, notification.comment));
+            } else {
+                card.querySelector('.acknowledge-btn').addEventListener('click', () => acknowledgeRequest(notification.id));
             }
             return card;
         }
 
-        async function acknowledgeRequest(id, comment) {
+        async function acknowledgeRequest(id) {
             if (!currentWorker?.name) { alert("Worker profile not loaded."); return; }
             const notificationRef = doc(db, "notifications", id);
             await updateDoc(notificationRef, { 
                 acknowledged: true,
                 acknowledgedTimestamp: serverTimestamp(),
                 workerName: currentWorker.name,
-                workerLastNameInitial: currentWorker.lastNameInitial,
-                comment: comment
+                workerLastNameInitial: currentWorker.lastNameInitial
             });
         }
 
         // --- Excel Export Logic ---
         exportBtn.addEventListener('click', async () => {
-            console.log("Exporting data...");
             const q = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
             const querySnapshot = await getDocs(q);
-            
-            const dataToExport = [];
-            querySnapshot.forEach(doc => {
+            const dataToExport = querySnapshot.docs.map(doc => {
                 const data = doc.data();
-                dataToExport.push({
+                return {
                     "Status": data.acknowledged ? "Acknowledged" : "New",
                     "Location": data.location,
                     "Customer Name": data.name || "N/A",
@@ -294,13 +288,10 @@
                     "Handled By": data.workerName ? `${data.workerName} ${data.workerLastNameInitial || ''}.` : "N/A",
                     "Time Acknowledged": data.acknowledgedTimestamp ? new Date(data.acknowledgedTimestamp.seconds * 1000).toLocaleString() : "N/A",
                     "Comment": data.comment || "N/A"
-                });
+                };
             });
 
-            if (dataToExport.length === 0) {
-                alert("No data to export.");
-                return;
-            }
+            if (dataToExport.length === 0) { alert("No data to export."); return; }
 
             const worksheet = XLSX.utils.json_to_sheet(dataToExport);
             const workbook = XLSX.utils.book_new();

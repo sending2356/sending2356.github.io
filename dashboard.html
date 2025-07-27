@@ -230,7 +230,6 @@
             card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md new-item';
             
             const receivedTime = notification.timestamp ? new Date(notification.timestamp.seconds * 1000).toLocaleString() : 'N/A';
-            const nameDisplay = notification.name ? `<p class="text-md"><b>By:</b> ${notification.name}</p>` : '';
             
             let bottomContent = '';
             if (notification.acknowledged) {
@@ -238,7 +237,6 @@
                 const workerId = notification.workerName ? `${notification.workerName} ${notification.workerLastNameInitial || ''}.` : 'N/A';
                 const commentDisplay = notification.comment ? `<p class="text-sm italic text-gray-600 dark:text-gray-400 mt-2">"${notification.comment}"</p>` : '';
 
-                // **MODIFICATION**: Only show the "Add/Edit Comment" button if the current user is the one who acknowledged it.
                 let commentButton = '';
                 const currentUser = auth.currentUser;
                 if (currentUser && currentUser.uid === notification.workerUID) {
@@ -257,10 +255,11 @@
                  bottomContent = `<button class="acknowledge-btn mt-2 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600">Acknowledge</button>`;
             }
 
+            // **MODIFICATION**: Added gray text color classes and conditional rendering for the requester's name.
             card.innerHTML = `
                 <div>
-                    <p class="font-bold text-lg">${notification.location}</p>
-                    ${nameDisplay}
+                    <p class="font-bold text-lg text-gray-800 dark:text-gray-200">${notification.location}</p>
+                    ${notification.name ? `<p class="text-md text-gray-600 dark:text-gray-400"><b>By:</b> ${notification.name}</p>` : ''}
                     <p class="text-sm text-gray-500"><b>Received:</b> ${receivedTime}</p>
                 </div>
                 ${bottomContent}
@@ -284,7 +283,6 @@
             if (!user) { alert("Not logged in."); return; }
 
             const notificationRef = doc(db, "notifications", id);
-            // **MODIFICATION**: Save the worker's UID when acknowledging.
             await updateDoc(notificationRef, { 
                 acknowledged: true,
                 acknowledgedTimestamp: serverTimestamp(),

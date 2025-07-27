@@ -154,13 +154,16 @@
         let unsubscribe;
         let currentWorker = null;
         let activeRequestId = null;
+        let currentWorkerUID = null; // **FIX**: Variable to reliably store the logged-in user's UID
 
         // --- Auth & Profile ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
+                currentWorkerUID = user.uid; // **FIX**: Set the UID as soon as the user logs in
                 userEmailDisplay.textContent = user.email;
                 checkUserProfile(user);
             } else {
+                currentWorkerUID = null; // **FIX**: Clear the UID on logout
                 currentWorker = null;
                 loginSection.classList.remove('hidden');
                 dashboardSection.classList.add('hidden');
@@ -238,8 +241,8 @@
                 const commentDisplay = notification.comment ? `<p class="text-sm italic text-gray-600 dark:text-gray-400 mt-2">"${notification.comment}"</p>` : '';
 
                 let commentButton = '';
-                const currentUser = auth.currentUser;
-                if (currentUser && currentUser.uid === notification.workerUID) {
+                // **FIX**: Use the reliable currentWorkerUID for the check
+                if (currentWorkerUID && currentWorkerUID === notification.workerUID) {
                     commentButton = `<button class="add-comment-btn mt-2 text-sm text-blue-500 hover:underline">Add/Edit Comment</button>`;
                 }
 
@@ -255,7 +258,6 @@
                  bottomContent = `<button class="acknowledge-btn mt-2 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600">Acknowledge</button>`;
             }
 
-            // **MODIFICATION**: Added gray text color classes and conditional rendering for the requester's name.
             card.innerHTML = `
                 <div>
                     <p class="font-bold text-lg text-gray-800 dark:text-gray-200">${notification.location}</p>
@@ -265,10 +267,9 @@
                 ${bottomContent}
             `;
 
-            // Add event listeners after innerHTML is set
             if (notification.acknowledged) {
                 const btn = card.querySelector('.add-comment-btn');
-                if (btn) { // Only add listener if the button exists
+                if (btn) {
                     btn.addEventListener('click', () => openCommentModal(notification.id, notification.comment));
                 }
             } else {
@@ -279,8 +280,7 @@
 
         async function acknowledgeRequest(id) {
             if (!currentWorker?.name) { alert("Worker profile not loaded."); return; }
-            const user = auth.currentUser;
-            if (!user) { alert("Not logged in."); return; }
+            if (!currentWorkerUID) { alert("Not logged in."); return; } // **FIX**: Use the reliable UID for the check
 
             const notificationRef = doc(db, "notifications", id);
             await updateDoc(notificationRef, { 
@@ -288,7 +288,7 @@
                 acknowledgedTimestamp: serverTimestamp(),
                 workerName: currentWorker.name,
                 workerLastNameInitial: currentWorker.lastNameInitial,
-                workerUID: user.uid 
+                workerUID: currentWorkerUID // **FIX**: Use the reliable UID for writing
             });
         }
 

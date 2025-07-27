@@ -154,20 +154,24 @@
         let unsubscribe;
         let currentWorker = null;
         let activeRequestId = null;
-        let currentWorkerUID = null; // **FIX**: Variable to reliably store the logged-in user's UID
 
         // --- Auth & Profile ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                currentWorkerUID = user.uid; // **FIX**: Set the UID as soon as the user logs in
                 userEmailDisplay.textContent = user.email;
                 checkUserProfile(user);
             } else {
-                currentWorkerUID = null; // **FIX**: Clear the UID on logout
+                // **FIX**: More robust cleanup on logout
                 currentWorker = null;
+                activeRequestId = null;
                 loginSection.classList.remove('hidden');
                 dashboardSection.classList.add('hidden');
-                if (unsubscribe) unsubscribe();
+                profileModal.classList.add('hidden');
+                commentModal.classList.add('hidden');
+                if (unsubscribe) {
+                    unsubscribe();
+                    unsubscribe = null;
+                }
             }
         });
 
@@ -207,6 +211,7 @@
         
         // --- Firestore Logic ---
         function listenForNotifications() {
+            if (unsubscribe) unsubscribe(); // Ensure no lingering listeners
             const q = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
             unsubscribe = onSnapshot(q, (snapshot) => {
                 newRequestsList.innerHTML = '';
@@ -241,8 +246,9 @@
                 const commentDisplay = notification.comment ? `<p class="text-sm italic text-gray-600 dark:text-gray-400 mt-2">"${notification.comment}"</p>` : '';
 
                 let commentButton = '';
-                // **FIX**: Use the reliable currentWorkerUID for the check
-                if (currentWorkerUID && currentWorkerUID === notification.workerUID) {
+                // **FIX**: Directly check auth.currentUser for the most reliable state
+                const currentUser = auth.currentUser;
+                if (currentUser && currentUser.uid === notification.workerUID) {
                     commentButton = `<button class="add-comment-btn mt-2 text-sm text-blue-500 hover:underline">Add/Edit Comment</button>`;
                 }
 
@@ -280,7 +286,8 @@
 
         async function acknowledgeRequest(id) {
             if (!currentWorker?.name) { alert("Worker profile not loaded."); return; }
-            if (!currentWorkerUID) { alert("Not logged in."); return; } // **FIX**: Use the reliable UID for the check
+            const user = auth.currentUser;
+            if (!user) { alert("Not logged in."); return; }
 
             const notificationRef = doc(db, "notifications", id);
             await updateDoc(notificationRef, { 
@@ -288,7 +295,7 @@
                 acknowledgedTimestamp: serverTimestamp(),
                 workerName: currentWorker.name,
                 workerLastNameInitial: currentWorker.lastNameInitial,
-                workerUID: currentWorkerUID // **FIX**: Use the reliable UID for writing
+                workerUID: user.uid 
             });
         }
 

@@ -6,6 +6,7 @@
     <title>Worker Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS Library for Excel Export -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
@@ -29,6 +30,7 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900">
 
+    <!-- Login Section -->
     <div id="login-section" class="flex items-center justify-center h-screen">
         <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
             <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Worker Dashboard Login</h2>
@@ -49,6 +51,7 @@
         </div>
     </div>
 
+    <!-- Profile Setup Modal -->
     <div id="profile-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full z-50 flex items-center justify-center">
         <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
             <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Setup Your Profile</h2>
@@ -68,6 +71,7 @@
         </div>
     </div>
     
+    <!-- Comment Modal -->
     <div id="comment-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full z-50 flex items-center justify-center">
         <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
             <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Add/Edit Comment</h2>
@@ -88,6 +92,7 @@
         </div>
     </div>
 
+    <!-- Dashboard Section -->
     <div id="dashboard-section" class="hidden">
         <header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40">
             <div class="container mx-auto px-6 py-4 flex justify-between items-center">
@@ -233,12 +238,19 @@
                 const workerId = notification.workerName ? `${notification.workerName} ${notification.workerLastNameInitial || ''}.` : 'N/A';
                 const commentDisplay = notification.comment ? `<p class="text-sm italic text-gray-600 dark:text-gray-400 mt-2">"${notification.comment}"</p>` : '';
 
+                // **MODIFICATION**: Only show the "Add/Edit Comment" button if the current user is the one who acknowledged it.
+                let commentButton = '';
+                const currentUser = auth.currentUser;
+                if (currentUser && currentUser.uid === notification.workerUID) {
+                    commentButton = `<button class="add-comment-btn mt-2 text-sm text-blue-500 hover:underline">Add/Edit Comment</button>`;
+                }
+
                 bottomContent = `
                     <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                         <p class="text-sm text-green-600 dark:text-green-400"><b>Handled By:</b> ${workerId}</p>
                         <p class="text-sm text-gray-500"><b>At:</b> ${ackTime}</p>
                         ${commentDisplay}
-                        <button class="add-comment-btn mt-2 text-sm text-blue-500 hover:underline">Add/Edit Comment</button>
+                        ${commentButton}
                     </div>
                 `;
             } else {
@@ -256,7 +268,10 @@
 
             // Add event listeners after innerHTML is set
             if (notification.acknowledged) {
-                card.querySelector('.add-comment-btn').addEventListener('click', () => openCommentModal(notification.id, notification.comment));
+                const btn = card.querySelector('.add-comment-btn');
+                if (btn) { // Only add listener if the button exists
+                    btn.addEventListener('click', () => openCommentModal(notification.id, notification.comment));
+                }
             } else {
                 card.querySelector('.acknowledge-btn').addEventListener('click', () => acknowledgeRequest(notification.id));
             }
@@ -265,12 +280,17 @@
 
         async function acknowledgeRequest(id) {
             if (!currentWorker?.name) { alert("Worker profile not loaded."); return; }
+            const user = auth.currentUser;
+            if (!user) { alert("Not logged in."); return; }
+
             const notificationRef = doc(db, "notifications", id);
+            // **MODIFICATION**: Save the worker's UID when acknowledging.
             await updateDoc(notificationRef, { 
                 acknowledged: true,
                 acknowledgedTimestamp: serverTimestamp(),
                 workerName: currentWorker.name,
-                workerLastNameInitial: currentWorker.lastNameInitial
+                workerLastNameInitial: currentWorker.lastNameInitial,
+                workerUID: user.uid 
             });
         }
 

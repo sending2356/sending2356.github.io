@@ -158,28 +158,9 @@
         // --- Auth & Profile ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // User is signed in.
                 userEmailDisplay.textContent = user.email;
-                
-                // Fetch the user's profile from Firestore.
-                const workerRef = doc(db, "workers", user.uid);
-                const docSnap = await getDoc(workerRef);
-
-                if (docSnap.exists() && docSnap.data().name) {
-                    // Profile exists, load it and show the dashboard.
-                    currentWorker = docSnap.data();
-                    loginSection.classList.add('hidden');
-                    profileModal.classList.add('hidden');
-                    dashboardSection.classList.remove('hidden');
-                    listenForNotifications();
-                } else {
-                    // Profile does NOT exist, show the setup modal.
-                    loginSection.classList.add('hidden');
-                    dashboardSection.classList.add('hidden');
-                    profileModal.classList.remove('hidden');
-                }
+                await checkUserProfile(user);
             } else {
-                // User is signed out. Clean up the entire UI and state.
                 currentWorker = null;
                 activeRequestId = null;
                 loginSection.classList.remove('hidden');
@@ -193,7 +174,33 @@
             }
         });
 
-        loginForm.addEventListener('submit', (e) => { e.preventDefault(); signInWithEmailAndPassword(auth, loginForm.email.value, loginForm.password.value).catch(err => { document.getElementById('login-error').textContent = err.message; document.getElementById('login-error').classList.remove('hidden'); }); });
+        async function checkUserProfile(user) {
+            const workerRef = doc(db, "workers", user.uid);
+            const docSnap = await getDoc(workerRef);
+
+            if (docSnap.exists() && docSnap.data().name) {
+                currentWorker = docSnap.data();
+                loginSection.classList.add('hidden');
+                profileModal.classList.add('hidden');
+                dashboardSection.classList.remove('hidden');
+                listenForNotifications();
+            } else {
+                loginSection.classList.add('hidden');
+                dashboardSection.classList.add('hidden');
+                profileModal.classList.remove('hidden');
+            }
+        }
+
+        loginForm.addEventListener('submit', (e) => { 
+            e.preventDefault(); 
+            const loginError = document.getElementById('login-error');
+            loginError.classList.add('hidden');
+            signInWithEmailAndPassword(auth, loginForm.email.value, loginForm.password.value)
+                .catch(err => { 
+                    loginError.textContent = err.message; 
+                    loginError.classList.remove('hidden'); 
+                }); 
+        });
         
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -203,11 +210,7 @@
             const workerData = { name: profileForm.firstName.value, lastNameInitial: profileForm.lastNameInitial.value };
             await setDoc(doc(db, "workers", user.uid), workerData);
             
-            // Now that the profile is saved, proceed to the dashboard
-            currentWorker = workerData;
-            profileModal.classList.add('hidden');
-            dashboardSection.classList.remove('hidden');
-            listenForNotifications();
+            await checkUserProfile(user); // Re-check profile to proceed to dashboard
         });
 
         logoutButton.addEventListener('click', () => signOut(auth));
@@ -231,7 +234,7 @@
         
         // --- Firestore Logic ---
         function listenForNotifications() {
-            if (unsubscribe) unsubscribe(); // Ensure no lingering listeners
+            if (unsubscribe) return; // Prevent multiple listeners
             const q = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
             unsubscribe = onSnapshot(q, (snapshot) => {
                 newRequestsList.innerHTML = '';
@@ -313,7 +316,7 @@
                 acknowledged: true,
                 acknowledgedTimestamp: serverTimestamp(),
                 workerName: currentWorker.name,
-                workerLastNameInitial: currentWorker.lastNameInitial || '', // FIX: Provide a fallback
+                workerLastNameInitial: currentWorker.lastNameInitial || '',
                 workerUID: user.uid 
             });
         }

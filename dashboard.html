@@ -6,6 +6,8 @@
     <title>Worker Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- SheetJS Library for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -50,36 +52,55 @@
     </div>
 
     <!-- Profile Setup Modal -->
-    <div id="profile-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div id="profile-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full z-50 flex items-center justify-center">
         <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
             <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Setup Your Profile</h2>
-            <p class="text-center text-gray-600 dark:text-gray-400">Please enter your name. This will be shown when you acknowledge a request.</p>
             <form id="profile-form" class="space-y-6">
                 <div>
                     <label for="firstName" class="text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
-                    <input id="firstName" name="firstName" type="text" required class="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., Jane">
+                    <input id="firstName" name="firstName" type="text" required class="w-full px-3 py-2 mt-1 rounded-md">
                 </div>
                 <div>
                     <label for="lastNameInitial" class="text-sm font-medium text-gray-700 dark:text-gray-300">Last Name Initial</label>
-                    <input id="lastNameInitial" name="lastNameInitial" type="text" required maxlength="1" class="w-full px-3 py-2 mt-1 text-gray-900 bg-gray-100 dark:text-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., D">
+                    <input id="lastNameInitial" name="lastNameInitial" type="text" required maxlength="1" class="w-full px-3 py-2 mt-1 rounded-md">
                 </div>
-                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-md text-white bg-blue-600 hover:bg-blue-700">
                     Save Profile
                 </button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Comment Modal -->
+    <div id="comment-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 h-full w-full z-50 flex items-center justify-center">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white dark:bg-gray-800 rounded-2xl shadow-xl">
+            <h2 class="text-3xl font-bold text-center text-gray-900 dark:text-white">Add Comment</h2>
+            <form id="comment-form" class="space-y-6">
+                <div>
+                    <label for="comment-text" class="text-sm font-medium text-gray-700 dark:text-gray-300">Comment (Optional)</label>
+                    <textarea id="comment-text" rows="3" class="w-full px-3 py-2 mt-1 rounded-md" placeholder="e.g., Customer needed help finding item X."></textarea>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="button" id="cancel-comment-btn" class="w-full flex justify-center py-3 px-4 rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300">
+                        Cancel
+                    </button>
+                    <button type="submit" class="w-full flex justify-center py-3 px-4 rounded-md text-white bg-green-600 hover:bg-green-700">
+                        Acknowledge Request
+                    </button>
+                </div>
             </form>
         </div>
     </div>
 
     <!-- Dashboard Section -->
     <div id="dashboard-section" class="hidden">
-        <header class="bg-white dark:bg-gray-800 shadow-md">
+        <header class="bg-white dark:bg-gray-800 shadow-md sticky top-0 z-40">
             <div class="container mx-auto px-6 py-4 flex justify-between items-center">
                 <h1 class="text-2xl font-bold text-blue-600 dark:text-blue-400">Live Requests</h1>
-                <div>
-                    <span id="user-email" class="text-gray-700 dark:text-gray-300 mr-4"></span>
-                    <button id="logout-button" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">
-                        Logout
-                    </button>
+                <div class="flex items-center space-x-4">
+                    <button id="export-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">Export to Excel</button>
+                    <span id="user-email" class="text-gray-700 dark:text-gray-300 hidden md:inline"></span>
+                    <button id="logout-button" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">Logout</button>
                 </div>
             </div>
         </header>
@@ -99,12 +120,10 @@
     <audio id="notification-sound" src="https://freesound.org/data/previews/415/415763_6142149-lq.mp3" preload="auto"></audio>
 
     <script type="module">
-        // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, orderBy, serverTimestamp, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, query, onSnapshot, doc, updateDoc, orderBy, serverTimestamp, getDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Firebase Configuration ---
         const firebaseConfig = {
            apiKey: "AIzaSyDX9IFrGYHdNcETWs4OmlRcmMq7COVu_BM",
            authDomain: "notification-cfe11.firebaseapp.com",
@@ -114,203 +133,180 @@
            appId: "1:95502933910:web:3f139025a853e10c7287b7"
         };
 
-        // --- Initialize Firebase ---
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- DOM Elements ---
         const loginSection = document.getElementById('login-section');
         const dashboardSection = document.getElementById('dashboard-section');
         const profileModal = document.getElementById('profile-modal');
+        const commentModal = document.getElementById('comment-modal');
         const loginForm = document.getElementById('login-form');
         const profileForm = document.getElementById('profile-form');
-        const loginError = document.getElementById('login-error');
+        const commentForm = document.getElementById('comment-form');
+        const cancelCommentBtn = document.getElementById('cancel-comment-btn');
         const userEmailDisplay = document.getElementById('user-email');
         const logoutButton = document.getElementById('logout-button');
         const newRequestsList = document.getElementById('new-requests-list');
         const acknowledgedRequestsList = document.getElementById('acknowledged-requests-list');
-        const newCountEl = document.getElementById('new-count');
-        const ackCountEl = document.getElementById('ack-count');
-        const notificationSound = document.getElementById('notification-sound');
+        const exportBtn = document.getElementById('export-btn');
 
         let unsubscribe;
-        let knownIds = new Set();
-        let currentWorker = null; // To store the logged-in worker's profile data
+        let currentWorker = null;
+        let activeRequestId = null;
 
-        // --- Authentication Logic ---
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = loginForm.email.value;
-            const password = loginForm.password.value;
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                loginError.classList.add('hidden');
-            } catch (error) {
-                loginError.textContent = error.message;
-                loginError.classList.remove('hidden');
-            }
-        });
-
-        logoutButton.addEventListener('click', () => signOut(auth));
-
+        // --- Auth & Profile ---
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 userEmailDisplay.textContent = user.email;
-                checkUserProfile(user); // Check for profile before showing dashboard
+                checkUserProfile(user);
             } else {
                 currentWorker = null;
                 loginSection.classList.remove('hidden');
                 dashboardSection.classList.add('hidden');
-                profileModal.classList.add('hidden');
                 if (unsubscribe) unsubscribe();
-                newRequestsList.innerHTML = '';
-                acknowledgedRequestsList.innerHTML = '';
-                knownIds.clear();
             }
         });
 
-        // --- Profile Logic ---
         async function checkUserProfile(user) {
             const workerRef = doc(db, "workers", user.uid);
             const docSnap = await getDoc(workerRef);
-
-            if (docSnap.exists() && docSnap.data().name && docSnap.data().lastNameInitial) {
+            if (docSnap.exists() && docSnap.data().name) {
                 currentWorker = docSnap.data();
                 loginSection.classList.add('hidden');
                 dashboardSection.classList.remove('hidden');
                 listenForNotifications();
             } else {
-                // First time login or incomplete profile, show profile setup modal
                 profileModal.classList.remove('hidden');
             }
         }
 
-        profileForm.addEventListener('submit', async (e) => {
+        loginForm.addEventListener('submit', (e) => { e.preventDefault(); signInWithEmailAndPassword(auth, loginForm.email.value, loginForm.password.value).catch(err => alert(err.message)); });
+        profileForm.addEventListener('submit', async (e) => { e.preventDefault(); const user = auth.currentUser; await setDoc(doc(db, "workers", user.uid), { name: profileForm.firstName.value, lastNameInitial: profileForm.lastNameInitial.value }); profileModal.classList.add('hidden'); checkUserProfile(user); });
+        logoutButton.addEventListener('click', () => signOut(auth));
+
+        // --- Comment Modal Logic ---
+        function openCommentModal(id) {
+            activeRequestId = id;
+            commentForm.reset();
+            commentModal.classList.remove('hidden');
+        }
+        cancelCommentBtn.addEventListener('click', () => commentModal.classList.add('hidden'));
+        commentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const user = auth.currentUser;
-            if (!user) return;
-
-            const workerData = {
-                name: profileForm.firstName.value,
-                lastNameInitial: profileForm.lastNameInitial.value
-            };
-
-            const workerRef = doc(db, "workers", user.uid);
-            await setDoc(workerRef, workerData);
-            
-            currentWorker = workerData;
-            profileModal.classList.add('hidden');
-            loginSection.classList.add('hidden');
-            dashboardSection.classList.remove('hidden');
-            listenForNotifications();
+            if (!activeRequestId) return;
+            const commentText = document.getElementById('comment-text').value;
+            await acknowledgeRequest(activeRequestId, commentText);
+            commentModal.classList.add('hidden');
+            activeRequestId = null;
         });
-
-
+        
         // --- Firestore Logic ---
         function listenForNotifications() {
             const q = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
-            unsubscribe = onSnapshot(q, (querySnapshot) => {
-                let hasNewUnacknowledged = false;
+            unsubscribe = onSnapshot(q, (snapshot) => {
                 newRequestsList.innerHTML = '';
                 acknowledgedRequestsList.innerHTML = '';
-                let newCount = 0;
-                let ackCount = 0;
-                const currentIds = new Set();
-
-                querySnapshot.forEach((doc) => {
+                document.getElementById('new-count').textContent = 0;
+                document.getElementById('ack-count').textContent = 0;
+                
+                snapshot.forEach((doc) => {
                     const notification = { id: doc.id, ...doc.data() };
-                    currentIds.add(notification.id);
                     const card = createNotificationCard(notification);
                     if (notification.acknowledged) {
                         acknowledgedRequestsList.appendChild(card);
-                        ackCount++;
+                        document.getElementById('ack-count').textContent++;
                     } else {
                         newRequestsList.appendChild(card);
-                        newCount++;
-                        if (!knownIds.has(notification.id)) hasNewUnacknowledged = true;
+                        document.getElementById('new-count').textContent++;
                     }
                 });
-                
-                newCountEl.textContent = newCount;
-                ackCountEl.textContent = ackCount;
-
-                const newRequestsTitle = document.getElementById('new-requests-title');
-                if (hasNewUnacknowledged) {
-                    notificationSound.play().catch(e => console.warn("Could not play sound:", e));
-                    newRequestsTitle.classList.add('title-pulse');
-                } else if (newCount === 0) {
-                    newRequestsTitle.classList.remove('title-pulse');
-                }
-                
-                knownIds = new Set([...knownIds, ...currentIds]);
             });
         }
 
         function createNotificationCard(notification) {
             const card = document.createElement('div');
-            card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md flex justify-between items-center new-item';
+            card.className = 'bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md new-item';
             
-            const receivedTime = notification.timestamp ? new Date(notification.timestamp.seconds * 1000).toLocaleTimeString() : 'Just now';
-            const nameDisplay = notification.name ? `<p class="text-md text-gray-700 dark:text-gray-300">By: <span class="font-medium">${notification.name}</span></p>` : '';
+            const receivedTime = notification.timestamp ? new Date(notification.timestamp.seconds * 1000).toLocaleString() : 'N/A';
+            const nameDisplay = notification.name ? `<p class="text-md"><b>By:</b> ${notification.name}</p>` : '';
             
-            let acknowledgedTimeDisplay = '';
-            let workerDisplay = ''; // For the worker's name
+            let acknowledgedInfo = '';
             if (notification.acknowledged) {
-                if (notification.acknowledgedTimestamp) {
-                    const acknowledgedTime = new Date(notification.acknowledgedTimestamp.seconds * 1000).toLocaleTimeString();
-                    acknowledgedTimeDisplay = `<p class="text-sm text-green-600 dark:text-green-400 font-medium">Acknowledged: ${acknowledgedTime}</p>`;
-                }
-                if (notification.workerName) {
-                    let workerIdentifier = notification.workerName;
-                    if (notification.workerLastNameInitial) {
-                        workerIdentifier += ` ${notification.workerLastNameInitial}.`;
-                    }
-                    workerDisplay = `<p class="text-sm text-green-600 dark:text-green-400 font-medium">Handled By: ${workerIdentifier}</p>`;
-                }
+                const ackTime = notification.acknowledgedTimestamp ? new Date(notification.acknowledgedTimestamp.seconds * 1000).toLocaleString() : 'N/A';
+                const workerId = notification.workerName ? `${notification.workerName} ${notification.workerLastNameInitial || ''}.` : 'N/A';
+                const commentDisplay = notification.comment ? `<p class="text-sm italic text-gray-600 dark:text-gray-400 mt-2">"${notification.comment}"</p>` : '';
+
+                acknowledgedInfo = `
+                    <div class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <p class="text-sm text-green-600 dark:text-green-400"><b>Handled By:</b> ${workerId}</p>
+                        <p class="text-sm text-green-600 dark:text-green-400"><b>At:</b> ${ackTime}</p>
+                        ${commentDisplay}
+                    </div>
+                `;
             }
 
             card.innerHTML = `
-                <div class="space-y-1">
-                    <p class="font-bold text-lg text-gray-900 dark:text-white">${notification.location}</p>
+                <div>
+                    <p class="font-bold text-lg">${notification.location}</p>
                     ${nameDisplay}
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Received: ${receivedTime}</p>
-                    ${acknowledgedTimeDisplay}
-                    ${workerDisplay}
+                    <p class="text-sm text-gray-500"><b>Received:</b> ${receivedTime}</p>
+                    ${acknowledgedInfo}
                 </div>
             `;
 
             if (!notification.acknowledged) {
                 const ackButton = document.createElement('button');
                 ackButton.textContent = 'Acknowledge';
-                ackButton.className = 'bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600 transition-colors flex-shrink-0 ml-4';
-                ackButton.onclick = () => acknowledgeRequest(notification.id);
-                card.appendChild(ackButton);
+                ackButton.className = 'mt-2 bg-green-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-600';
+                ackButton.onclick = () => openCommentModal(notification.id);
+                card.querySelector('div').appendChild(ackButton);
             }
-
             return card;
         }
 
-        async function acknowledgeRequest(id) {
-            // **FIX**: Added a more robust check to ensure worker profile is fully loaded.
-            if (!currentWorker || !currentWorker.name || !currentWorker.lastNameInitial) {
-                alert("Your worker profile is incomplete or not loaded. Please reload the page and try again.");
-                console.error("Acknowledge failed: currentWorker profile is missing or incomplete.", currentWorker);
+        async function acknowledgeRequest(id, comment) {
+            if (!currentWorker?.name) { alert("Worker profile not loaded."); return; }
+            const notificationRef = doc(db, "notifications", id);
+            await updateDoc(notificationRef, { 
+                acknowledged: true,
+                acknowledgedTimestamp: serverTimestamp(),
+                workerName: currentWorker.name,
+                workerLastNameInitial: currentWorker.lastNameInitial,
+                comment: comment
+            });
+        }
+
+        // --- Excel Export Logic ---
+        exportBtn.addEventListener('click', async () => {
+            console.log("Exporting data...");
+            const q = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
+            const querySnapshot = await getDocs(q);
+            
+            const dataToExport = [];
+            querySnapshot.forEach(doc => {
+                const data = doc.data();
+                dataToExport.push({
+                    "Status": data.acknowledged ? "Acknowledged" : "New",
+                    "Location": data.location,
+                    "Customer Name": data.name || "N/A",
+                    "Time Received": data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : "N/A",
+                    "Handled By": data.workerName ? `${data.workerName} ${data.workerLastNameInitial || ''}.` : "N/A",
+                    "Time Acknowledged": data.acknowledgedTimestamp ? new Date(data.acknowledgedTimestamp.seconds * 1000).toLocaleString() : "N/A",
+                    "Comment": data.comment || "N/A"
+                });
+            });
+
+            if (dataToExport.length === 0) {
+                alert("No data to export.");
                 return;
             }
-            const notificationRef = doc(db, "notifications", id);
-            try {
-                await updateDoc(notificationRef, { 
-                    acknowledged: true,
-                    acknowledgedTimestamp: serverTimestamp(),
-                    workerName: currentWorker.name,
-                    workerLastNameInitial: currentWorker.lastNameInitial
-                });
-            } catch (error) {
-                console.error("Error acknowledging request:", error);
-                alert("Could not acknowledge the request. Please try again.");
-            }
-        }
+
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Notifications");
+            XLSX.writeFile(workbook, `NotificationExport_${new Date().toISOString().split('T')[0]}.xlsx`);
+        });
 
     </script>
 </body>

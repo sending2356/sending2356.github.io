@@ -156,12 +156,30 @@
         let activeRequestId = null;
 
         // --- Auth & Profile ---
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
+                // User is signed in.
                 userEmailDisplay.textContent = user.email;
-                checkUserProfile(user);
+                
+                // Fetch the user's profile from Firestore.
+                const workerRef = doc(db, "workers", user.uid);
+                const docSnap = await getDoc(workerRef);
+
+                if (docSnap.exists() && docSnap.data().name) {
+                    // Profile exists, load it and show the dashboard.
+                    currentWorker = docSnap.data();
+                    loginSection.classList.add('hidden');
+                    profileModal.classList.add('hidden');
+                    dashboardSection.classList.remove('hidden');
+                    listenForNotifications();
+                } else {
+                    // Profile does NOT exist, show the setup modal.
+                    loginSection.classList.add('hidden');
+                    dashboardSection.classList.add('hidden');
+                    profileModal.classList.remove('hidden');
+                }
             } else {
-                // **FIX**: More robust cleanup on logout
+                // User is signed out. Clean up the entire UI and state.
                 currentWorker = null;
                 activeRequestId = null;
                 loginSection.classList.remove('hidden');
@@ -175,21 +193,23 @@
             }
         });
 
-        async function checkUserProfile(user) {
-            const workerRef = doc(db, "workers", user.uid);
-            const docSnap = await getDoc(workerRef);
-            if (docSnap.exists() && docSnap.data().name) {
-                currentWorker = docSnap.data();
-                loginSection.classList.add('hidden');
-                dashboardSection.classList.remove('hidden');
-                listenForNotifications();
-            } else {
-                profileModal.classList.remove('hidden');
-            }
-        }
+        loginForm.addEventListener('submit', (e) => { e.preventDefault(); signInWithEmailAndPassword(auth, loginForm.email.value, loginForm.password.value).catch(err => { document.getElementById('login-error').textContent = err.message; document.getElementById('login-error').classList.remove('hidden'); }); });
+        
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
 
-        loginForm.addEventListener('submit', (e) => { e.preventDefault(); signInWithEmailAndPassword(auth, loginForm.email.value, loginForm.password.value).catch(err => alert(err.message)); });
-        profileForm.addEventListener('submit', async (e) => { e.preventDefault(); const user = auth.currentUser; await setDoc(doc(db, "workers", user.uid), { name: profileForm.firstName.value, lastNameInitial: profileForm.lastNameInitial.value }); profileModal.classList.add('hidden'); checkUserProfile(user); });
+            const workerData = { name: profileForm.firstName.value, lastNameInitial: profileForm.lastNameInitial.value };
+            await setDoc(doc(db, "workers", user.uid), workerData);
+            
+            // Now that the profile is saved, proceed to the dashboard
+            currentWorker = workerData;
+            profileModal.classList.add('hidden');
+            dashboardSection.classList.remove('hidden');
+            listenForNotifications();
+        });
+
         logoutButton.addEventListener('click', () => signOut(auth));
 
         // --- Comment Modal Logic ---
@@ -246,7 +266,6 @@
                 const commentDisplay = notification.comment ? `<p class="text-sm italic text-gray-600 dark:text-gray-400 mt-2">"${notification.comment}"</p>` : '';
 
                 let commentButton = '';
-                // **FIX**: Directly check auth.currentUser for the most reliable state
                 const currentUser = auth.currentUser;
                 if (currentUser && currentUser.uid === notification.workerUID) {
                     commentButton = `<button class="add-comment-btn mt-2 text-sm text-blue-500 hover:underline">Add/Edit Comment</button>`;
@@ -285,16 +304,16 @@
         }
 
         async function acknowledgeRequest(id) {
-            if (!currentWorker?.name) { alert("Worker profile not loaded."); return; }
             const user = auth.currentUser;
             if (!user) { alert("Not logged in."); return; }
+            if (!currentWorker?.name) { alert("Worker profile not loaded."); return; }
 
             const notificationRef = doc(db, "notifications", id);
             await updateDoc(notificationRef, { 
                 acknowledged: true,
                 acknowledgedTimestamp: serverTimestamp(),
                 workerName: currentWorker.name,
-                workerLastNameInitial: currentWorker.lastNameInitial,
+                workerLastNameInitial: currentWorker.lastNameInitial || '', // FIX: Provide a fallback
                 workerUID: user.uid 
             });
         }
